@@ -26,8 +26,8 @@ async function createApp() {
 
   const recipient = process.env.RECIPIENT || feePayerSigner.address
 
-  // Bootstrap fee payer on surfnet via cheatcodes
-  await bootstrap(feePayerSigner.address)
+  // Bootstrap fee payer on surfnet via cheatcodes (best-effort, don't block startup)
+  await bootstrap(feePayerSigner.address).catch(() => {})
 
   // ── Express app ──
   const app = express()
@@ -176,6 +176,7 @@ async function bootstrap(address: string) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+      signal: AbortSignal.timeout(5000),
     }).then(r => r.json() as Promise<any>)
 
   // Fund fee payer with 100 SOL
