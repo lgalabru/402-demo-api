@@ -1,0 +1,23 @@
+{
+  "name": "pay-demo",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch api/index.ts",
+    "build": "echo 'Vercel handles build'",
+    "start": "tsx api/index.ts"
+  },
+  "dependencies": {
+    "@solana/kit": "^6.5.0",
+    "@solana/mpp": "^0.1.0",
+    "cors": "^2.8.5",
+    "express": "^4.21.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.0",
+    "@types/express": "^5.0.0",
+    "tsx": "^4.0.0"
+  },
+  "packageManager": "pnpm@9.15.0"
+}
