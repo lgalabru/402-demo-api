@@ -2,11 +2,19 @@
   "version": 2,
   "builds": [
     {
+      "src": "api/facilitator.ts",
+      "use": "@vercel/node"
+    },
+    {
       "src": "api/index.ts",
       "use": "@vercel/node"
     }
   ],
   "routes": [
+    {
+      "src": "/facilitator/(.*)",
+      "dest": "api/facilitator.ts"
+    },
     {
       "src": "/(.*)",
       "dest": "api/index.ts"
