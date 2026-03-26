@@ -27,16 +27,21 @@ Set these in your Vercel project settings:
 
 ## Endpoints
 
-| Endpoint | Price | Description |
-|----------|-------|-------------|
-| `GET /` | free | Landing page |
-| `GET /health` | free | Health check |
-| `GET /mpp/quote/:symbol` | 0.01 USDC | Stock quote |
-| `GET /mpp/weather/:city` | 0.005 USDC | Weather data |
+| Endpoint | Protocol | Price | Description |
+|----------|----------|-------|-------------|
+| `GET /` | — | free | Landing page |
+| `GET /health` | — | free | Health check |
+| `GET /mpp/quote/:symbol` | MPP | 0.01 USDC | Stock quote |
+| `GET /mpp/weather/:city` | MPP | 0.005 USDC | Weather data |
+| `GET /x402/joke` | x402 | $0.001 | Random joke |
+| `GET /x402/fact` | x402 | $0.001 | Random fact |
+
+The embedded facilitator for x402 is mounted on the same app at `/facilitator/*`.
 
 ## Test locally
 
 ```bash
 pnpm dev
 curl -i http://localhost:3000/mpp/quote/SOL
+curl -i http://localhost:3000/x402/joke
 ```

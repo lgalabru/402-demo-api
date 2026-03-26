@@ -2,6 +2,7 @@ import express from 'express'
 import cors from 'cors'
 import { generateKeyPairSigner, createKeyPairSignerFromBytes, getBase58Codec } from '@solana/kit'
 import { Mppx, solana } from '@solana/mpp/server'
+import { paymentMiddleware } from 'x402-express'
 
 const RPC_URL = process.env.RPC_URL || 'https://oddly-doges-mows.txtx.network:8899'
 const NETWORK = process.env.NETWORK || 'localnet'
@@ -32,7 +33,10 @@ async function createApp() {
   const app = express()
   app.use(express.json())
   app.use(cors({
-    exposedHeaders: ['www-authenticate', 'payment-receipt'],
+    exposedHeaders: [
+      'www-authenticate', 'payment-receipt',       // MPP
+      'x-payment-required', 'x-payment-response',  // x402
+    ],
   }))
 
   // ── MPP setup ──
@@ -100,6 +104,103 @@ async function createApp() {
     res.end(await response.text())
   })
 
+  // ── Embedded facilitator (mounted on same app) ──
+
+  app.get('/facilitator/supported', (_req, res) => {
+    res.json({
+      kinds: [{
+        scheme: 'exact',
+        network: 'solana-devnet',
+        extra: { feePayer: feePayerSigner.address },
+      }],
+    })
+  })
+
+  app.post('/facilitator/verify', (req, res) => {
+    const { paymentPayload } = req.body
+    if (!paymentPayload?.payload) {
+      return res.json({ isValid: false, invalidReason: 'Missing payload' })
+    }
+    res.json({
+      isValid: true,
+      payer: paymentPayload.payload.authorization?.from || 'unknown',
+    })
+  })
+
+  app.post('/facilitator/settle', async (req, res) => {
+    const { paymentPayload } = req.body
+    try {
+      const payload = paymentPayload?.payload
+      if (!payload) {
+        return res.json({ success: false, errorReason: 'Missing payload' })
+      }
+
+      if (payload.transaction) {
+        const result = await fetch(RPC_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jsonrpc: '2.0', id: 1,
+            method: 'sendTransaction',
+            params: [payload.transaction, { encoding: 'base64', skipPreflight: true }],
+          }),
+        })
+        const data = await result.json() as any
+        if (data.error) {
+          return res.json({ success: false, errorReason: data.error.message })
+        }
+        return res.json({ success: true, transaction: data.result })
+      }
+
+      return res.json({ success: true, transaction: 'local-facilitator-settled' })
+    } catch (err: any) {
+      return res.json({ success: false, errorReason: err.message })
+    }
+  })
+
+  // ── x402 endpoints ──
+  // Facilitator URL: same origin, mounted above at /facilitator
+  const facilitatorUrl = process.env.FACILITATOR_URL || selfUrl() + '/facilitator'
+
+  const x402App = express.Router()
+
+  x402App.use(paymentMiddleware(
+    recipient,
+    {
+      '/x402/joke': {
+        price: '$0.001',
+        network: 'solana-devnet' as any,
+        config: { description: 'A random joke' },
+      },
+      '/x402/fact': {
+        price: '$0.001',
+        network: 'solana-devnet' as any,
+        config: { description: 'A random fact' },
+      },
+    },
+    { url: facilitatorUrl },
+  ))
+
+  x402App.get('/x402/joke', (_req, res) => {
+    const jokes = [
+      "Why do programmers prefer dark mode? Because light attracts bugs.",
+      "There are 10 types of people: those who understand binary and those who don't.",
+      "A SQL query walks into a bar, sees two tables, and asks: 'Can I JOIN you?'",
+    ]
+    res.json({ joke: jokes[Math.floor(Math.random() * jokes.length)], source: 'x402-demo' })
+  })
+
+  x402App.get('/x402/fact', (_req, res) => {
+    const facts = [
+      "Honey never spoils. Archaeologists found 3000-year-old honey in Egyptian tombs.",
+      "Octopuses have three hearts and blue blood.",
+      "A group of flamingos is called a 'flamboyance'.",
+    ]
+    res.json({ fact: facts[Math.floor(Math.random() * facts.length)], source: 'x402-demo' })
+  })
+
+  app.use(x402App)
+
   // ── Landing page ──
   app.get('/', (_req, res) => {
     res.setHeader('Content-Type', 'text/html')
@@ -141,6 +242,13 @@ async function bootstrap(address: string) {
 
 // ── Helpers ──
 
+function selfUrl(): string {
+  // Vercel provides VERCEL_URL (no protocol) on deployed functions
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`
+  const port = process.env.PORT || '3000'
+  return `http://localhost:${port}`
+}
+
 function toWebRequest(req: express.Request): globalThis.Request {
   const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https'
   const host = req.headers.host || 'localhost'
@@ -160,7 +268,7 @@ function landingPage(recipient: string) {
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Solana Pay Demo</title>
   <style>
-    :root { --bg: #0a0a0a; --fg: #e5e5e5; --muted: #888; --accent: #14f195; --purple: #9945ff; }
+    :root { --bg: #0a0a0a; --fg: #e5e5e5; --muted: #888; --accent: #14f195; --purple: #9945ff; --blue: #00d4ff; }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace; background: var(--bg); color: var(--fg); min-height: 100vh; display: flex; align-items: center; justify-content: center; }
     .container { max-width: 640px; padding: 2rem; }
@@ -169,6 +277,7 @@ function landingPage(recipient: string) {
     .subtitle { color: var(--muted); margin-bottom: 2rem; font-size: 0.85rem; }
     .section { margin-bottom: 1.5rem; }
     .section h2 { font-size: 0.9rem; color: var(--purple); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.05em; }
+    .section h2.x402 { color: var(--blue); }
     .endpoint { background: #151515; border: 1px solid #252525; border-radius: 6px; padding: 0.75rem 1rem; margin-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center; }
     .endpoint .method { color: var(--accent); font-weight: bold; margin-right: 0.75rem; }
     .endpoint .path { flex: 1; }
@@ -185,7 +294,7 @@ function landingPage(recipient: string) {
 <body>
   <div class="container">
     <h1><span>pay</span> demo server</h1>
-    <p class="subtitle">MPP-gated API endpoints on Solana — pay with USDC to access data</p>
+    <p class="subtitle">402 payment-gated API endpoints on Solana — pay with USDC to access data</p>
 
     <div class="section">
       <h2>MPP Endpoints</h2>
@@ -202,6 +311,20 @@ function landingPage(recipient: string) {
     </div>
 
     <div class="section">
+      <h2 class="x402">x402 Endpoints</h2>
+      <div class="endpoint">
+        <span class="method">GET</span>
+        <span class="path">/x402/joke</span>
+        <span class="price">$0.001</span>
+      </div>
+      <div class="endpoint">
+        <span class="method">GET</span>
+        <span class="path">/x402/fact</span>
+        <span class="price">$0.001</span>
+      </div>
+    </div>
+
+    <div class="section">
       <h2>Free Endpoints</h2>
       <div class="endpoint">
         <span class="method">GET</span>
@@ -212,14 +335,19 @@ function landingPage(recipient: string) {
 
     <div class="try">
       <h2>Try it with the pay CLI</h2>
-      <pre>pay --yes curl ${recipient ? `https://&lt;this-host&gt;` : 'https://&lt;this-host&gt;'}/mpp/quote/SOL
-pay --yes curl ${recipient ? `https://&lt;this-host&gt;` : 'https://&lt;this-host&gt;'}/mpp/weather/paris</pre>
+      <pre># MPP
+pay --yes curl https://&lt;this-host&gt;/mpp/quote/SOL
+pay --yes curl https://&lt;this-host&gt;/mpp/weather/paris
+
+# x402
+pay --yes curl https://&lt;this-host&gt;/x402/joke
+pay --yes curl https://&lt;this-host&gt;/x402/fact</pre>
     </div>
 
     <div class="try">
       <h2>Or just curl to see the 402</h2>
-      <pre>curl -i /mpp/quote/SOL
-# Returns 402 with www-authenticate header</pre>
+      <pre>curl -i /mpp/quote/SOL     # www-authenticate challenge
+curl -i /x402/joke        # X-PAYMENT-REQUIRED challenge</pre>
     </div>
 
     <p class="footer">
