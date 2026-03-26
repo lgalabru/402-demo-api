@@ -104,9 +104,63 @@ async function createApp() {
     res.end(await response.text())
   })
 
+  // ── Embedded facilitator (same app, called via production URL) ──
+
+  app.get('/facilitator/supported', (_req, res) => {
+    res.json({
+      kinds: [{
+        scheme: 'exact',
+        network: 'solana-devnet',
+        extra: { feePayer: feePayerSigner.address },
+      }],
+    })
+  })
+
+  app.post('/facilitator/verify', (req, res) => {
+    const { paymentPayload } = req.body
+    if (!paymentPayload?.payload) {
+      return res.json({ isValid: false, invalidReason: 'Missing payload' })
+    }
+    res.json({
+      isValid: true,
+      payer: paymentPayload.payload.authorization?.from || 'unknown',
+    })
+  })
+
+  app.post('/facilitator/settle', async (req, res) => {
+    const { paymentPayload } = req.body
+    try {
+      const payload = paymentPayload?.payload
+      if (!payload) {
+        return res.json({ success: false, errorReason: 'Missing payload' })
+      }
+
+      if (payload.transaction) {
+        const result = await fetch(RPC_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jsonrpc: '2.0', id: 1,
+            method: 'sendTransaction',
+            params: [payload.transaction, { encoding: 'base64', skipPreflight: true }],
+          }),
+        })
+        const data = await result.json() as any
+        if (data.error) {
+          return res.json({ success: false, errorReason: data.error.message })
+        }
+        return res.json({ success: true, transaction: data.result })
+      }
+
+      return res.json({ success: true, transaction: 'local-facilitator-settled' })
+    } catch (err: any) {
+      return res.json({ success: false, errorReason: err.message })
+    }
+  })
+
   // ── x402 endpoints ──
-  // Facilitator runs as a separate serverless function at /facilitator
-  const facilitatorUrl = process.env.FACILITATOR_URL || selfUrl() + '/facilitator'
+  // x402 middleware calls facilitator via HTTP — use production URL to avoid Vercel auth on previews
+  const facilitatorUrl = process.env.FACILITATOR_URL || productionUrl() + '/facilitator'
 
   const x402App = express.Router()
 
@@ -155,13 +209,7 @@ async function createApp() {
 
   // ── Health ──
   app.get('/health', (_req, res) => {
-    res.json({
-      status: 'ok',
-      network: NETWORK,
-      recipient,
-      facilitatorUrl,
-      vercelUrl: process.env.VERCEL_URL || '(not set)',
-    })
+    res.json({ status: 'ok', network: NETWORK, recipient })
   })
 
   cachedApp = app
@@ -195,8 +243,10 @@ async function bootstrap(address: string) {
 
 // ── Helpers ──
 
-function selfUrl(): string {
-  // Vercel provides VERCEL_URL (no protocol) on deployed functions
+function productionUrl(): string {
+  // VERCEL_PROJECT_PRODUCTION_URL is the stable production domain (no auth protection).
+  // VERCEL_URL is the per-deployment preview URL which has Vercel Authentication — don't use it.
+  if (process.env.VERCEL_PROJECT_PRODUCTION_URL) return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
   if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`
   const port = process.env.PORT || '3000'
   return `http://localhost:${port}`
@@ -219,7 +269,7 @@ function landingPage(recipient: string) {
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Solana Pay Demo</title>
+  <title>402 Demo API</title>
   <style>
     :root { --bg: #0a0a0a; --fg: #e5e5e5; --muted: #888; --accent: #14f195; --purple: #9945ff; --blue: #00d4ff; }
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -246,8 +296,8 @@ function landingPage(recipient: string) {
 </head>
 <body>
   <div class="container">
-    <h1><span>pay</span> demo server</h1>
-    <p class="subtitle">402 payment-gated API endpoints on Solana — powered by <a href="https://github.com/txtx/surfpool">Surfpool</a> on <code>402.surfnet.dev</code>. No real funds needed.</p>
+    <h1><span>402</span> demo api</h1>
+    <p class="subtitle">402 payment-gated API endpoints on Solana — powered by <a href="https://402.surfnet.dev" target="_blank" rel="noopener">Solana Payment Sandbox</a>. No real funds needed.</p>
 
     <div class="section">
       <h2>MPP Endpoints</h2>

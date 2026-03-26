@@ -1,6 +1,6 @@
 # pay demo (Vercel)
 
-MPP and x402 payment-gated API demo deployed as a Vercel serverless function, running against `402.surfnet.dev` (public [Surfpool](https://github.com/txtx/surfpool) devnet).
+MPP and x402 payment-gated API demo deployed as a Vercel serverless function, running against the [Solana Payment Sandbox](https://402.surfnet.dev).
 
 On cold start the serverless function bootstraps the fee payer with 100 SOL + 1000 USDC via surfnet cheatcodes — no real funds needed.
 
@@ -21,7 +21,7 @@ Set these in your Vercel project settings:
 |----------|----------|-------------|
 | `RECIPIENT` | No | Solana address to receive payments (defaults to fee payer) |
 | `FEE_PAYER_KEY` | No | Base58-encoded keypair (generates ephemeral if unset) |
-| `RPC_URL` | No | Surfnet RPC (defaults to `http://402.surfnet.dev:8899`) |
+| `RPC_URL` | No | Surfnet RPC (defaults to `https://402.surfnet.dev:8899`) |
 | `SECRET_KEY` | No | MPP secret key (defaults to `demo-secret-key`) |
 | `NETWORK` | No | Solana network (defaults to `localnet`) |
 
