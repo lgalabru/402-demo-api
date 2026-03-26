@@ -1,6 +1,6 @@
 import express from 'express'
 
-const RPC_URL = process.env.RPC_URL || 'https://oddly-doges-mows.txtx.network:8899'
+const RPC_URL = process.env.RPC_URL || 'http://402.surfnet.dev:8899'
 
 const app = express()
 app.use(express.json())

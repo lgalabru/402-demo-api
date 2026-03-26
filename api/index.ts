@@ -4,7 +4,7 @@ import { generateKeyPairSigner, createKeyPairSignerFromBytes, getBase58Codec } f
 import { Mppx, solana } from '@solana/mpp/server'
 import { paymentMiddleware } from 'x402-express'
 
-const RPC_URL = process.env.RPC_URL || 'https://oddly-doges-mows.txtx.network:8899'
+const RPC_URL = process.env.RPC_URL || 'http://402.surfnet.dev:8899'
 const NETWORK = process.env.NETWORK || 'localnet'
 const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
 const SECRET_KEY = process.env.SECRET_KEY || 'demo-secret-key'
@@ -247,7 +247,7 @@ function landingPage(recipient: string) {
 <body>
   <div class="container">
     <h1><span>pay</span> demo server</h1>
-    <p class="subtitle">402 payment-gated API endpoints on Solana — pay with USDC to access data</p>
+    <p class="subtitle">402 payment-gated API endpoints on Solana — powered by <a href="https://github.com/txtx/surfpool">Surfpool</a> on <code>402.surfnet.dev</code>. No real funds needed.</p>
 
     <div class="section">
       <h2>MPP Endpoints</h2>
@@ -289,18 +289,18 @@ function landingPage(recipient: string) {
     <div class="try">
       <h2>Try it with the pay CLI</h2>
       <pre># MPP
-pay --yes curl https://&lt;this-host&gt;/mpp/quote/SOL
-pay --yes curl https://&lt;this-host&gt;/mpp/weather/paris
+pay --dev curl https://402-demo-api.vercel.app/mpp/quote/SOL
+pay --dev curl https://402-demo-api.vercel.app/mpp/weather/paris
 
 # x402
-pay --yes curl https://&lt;this-host&gt;/x402/joke
-pay --yes curl https://&lt;this-host&gt;/x402/fact</pre>
+pay --dev curl https://402-demo-api.vercel.app/x402/joke
+pay --dev curl https://402-demo-api.vercel.app/x402/fact</pre>
     </div>
 
     <div class="try">
       <h2>Or just curl to see the 402</h2>
-      <pre>curl -i /mpp/quote/SOL     # www-authenticate challenge
-curl -i /x402/joke        # X-PAYMENT-REQUIRED challenge</pre>
+      <pre>curl -i https://402-demo-api.vercel.app/mpp/quote/SOL
+curl -i https://402-demo-api.vercel.app/x402/joke</pre>
     </div>
 
     <p class="footer">
