@@ -4,7 +4,7 @@ import { generateKeyPairSigner, createKeyPairSignerFromBytes, getBase58Codec } f
 import { Mppx, solana } from '@solana/mpp/server'
 import { paymentMiddleware } from 'x402-express'
 
-const RPC_URL = process.env.RPC_URL || 'http://402.surfnet.dev:8899'
+const RPC_URL = process.env.RPC_URL || 'https://402.surfnet.dev:8899'
 const NETWORK = process.env.NETWORK || 'localnet'
 const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
 const SECRET_KEY = process.env.SECRET_KEY || 'demo-secret-key'
