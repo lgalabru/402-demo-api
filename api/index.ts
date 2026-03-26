@@ -155,7 +155,13 @@ async function createApp() {
 
   // ── Health ──
   app.get('/health', (_req, res) => {
-    res.json({ status: 'ok', network: NETWORK, recipient })
+    res.json({
+      status: 'ok',
+      network: NETWORK,
+      recipient,
+      facilitatorUrl,
+      vercelUrl: process.env.VERCEL_URL || '(not set)',
+    })
   })
 
   cachedApp = app
